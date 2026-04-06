@@ -27,26 +27,71 @@ function App() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>AI Chatbot</h2>
+  <div style={{ maxWidth: "600px", margin: "auto", padding: "20px" }}>
+    <h2 style={{ textAlign: "center" }}>🤖 AI Chatbot</h2>
 
-      <div style={{ border: "1px solid gray", padding: "10px", height: "300px", overflowY: "scroll" }}>
-        {chat.map((msg, index) => (
-          <p key={index}>
-            <b>{msg.sender}:</b> {msg.text}
-          </p>
-        ))}
-      </div>
+    <div
+      style={{
+        border: "1px solid #ccc",
+        borderRadius: "10px",
+        padding: "10px",
+        height: "400px",
+        overflowY: "auto",
+        background: "#f9f9f9",
+      }}
+    >
+      {chat.map((msg, index) => (
+        <div
+          key={index}
+          style={{
+            textAlign: msg.sender === "user" ? "right" : "left",
+            margin: "10px 0",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              padding: "10px",
+              borderRadius: "10px",
+              background:
+                msg.sender === "user" ? "#007bff" : "#e5e5ea",
+              color: msg.sender === "user" ? "white" : "black",
+            }}
+          >
+            {msg.text}
+          </span>
+        </div>
+      ))}
+    </div>
 
+    <div style={{ display: "flex", marginTop: "10px" }}>
       <input
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Type message..."
+        style={{
+          flex: 1,
+          padding: "10px",
+          borderRadius: "5px",
+          border: "1px solid #ccc",
+        }}
       />
-
-      <button onClick={sendMessage}>Send</button>
+      <button
+        onClick={sendMessage}
+        style={{
+          marginLeft: "10px",
+          padding: "10px 20px",
+          borderRadius: "5px",
+          background: "#007bff",
+          color: "white",
+          border: "none",
+        }}
+      >
+        Send
+      </button>
     </div>
-  );
+  </div>
+);
 }
 
 export default App;
