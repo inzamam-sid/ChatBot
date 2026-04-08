@@ -3,10 +3,11 @@ import express from "express";
 import cors from "cors";
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
+import { db } from "./db.js";
 import { getEmbedding } from "./embedding.js";
-import { cosineSimilarity } from "./similarity.js";
 
 dotenv.config();
+const collection = db.collection("documents");
 
 const app = express();
 app.use(cors());
@@ -18,55 +19,31 @@ const groq = new Groq({
 });
 
 
-// 🧠 Raw Documents
-const rawDocs = [
-  "React is a JavaScript library used for building user interfaces",
-  "Node.js is used for backend development and server-side programming",
-  "MongoDB is a NoSQL database used to store data",
-  "The college fee is 50000 rupees per year for students",
-  "A fee is an amount of money paid for a service or institution",
-];
-
-// 🧱 Store embeddings
-let documents = [];
-
-async function prepareDocs() {
-  console.log("Preparing embeddings... ⏳");
-
-  for (let text of rawDocs) {
-    const embedding = await getEmbedding(text);
-    documents.push({ text, embedding });
-  }
-
-  console.log("Embeddings ready ✅");
-}
-
 // 🔍 Smart Search
 async function getRelevantData(query) {
   const queryEmbedding = await getEmbedding(query);
 
-  let bestMatch = null;
-  let highestScore = -1;
+  const results = await collection.aggregate([
+    {
+      $vectorSearch: {
+        queryVector: queryEmbedding,
+        path: "embedding",
+        numCandidates: 10,
+        limit: 1,
+        index: "vector_index", // ✅ fixed
+      },
+    },
+  ]).toArray();
 
-  for (let doc of documents) {
-    const score = cosineSimilarity(queryEmbedding, doc.embedding);
+  if (!results.length) return null;
 
-    if (score > highestScore) {
-      highestScore = score;
-      bestMatch = doc.text;
-    }
-  }
+  //const context = results.map(r => r.text).join("\n");
+  const context = [...new Set(results.map(r => r.text))].join("\n");
 
-  // ✅ Debug log
-  console.log("Best score:", highestScore);
+  console.log("Context:", context);
 
-  if (highestScore < 0.2) {
-    return null;
-  }
-
-  return bestMatch;
+  return context;
 }
-
 
 // 🚀 Step 4.3: Updated Chat API
 app.post("/chat", async (req, res) => {
@@ -80,10 +57,9 @@ app.post("/chat", async (req, res) => {
 
     const finalPrompt = context
   ? `
-Answer the question using ONLY the context below.
+Answer the question using the context below.
 
-Be clear and complete.
-Do NOT add extra information.
+Give a clear and natural sentence.
 
 Context:
 ${context}
@@ -113,8 +89,6 @@ ${message}
 
 
 // 🚀 Start Server
-prepareDocs().then(() => {
-  app.listen(5000, () => {
-    console.log("Server running on port 5000 🚀");
-  });
+app.listen(5000, () => {
+  console.log("Server running on port 5000 🚀");
 });
