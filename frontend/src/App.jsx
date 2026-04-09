@@ -230,7 +230,8 @@ function App() {
 
     try {
       // 🔁 REPLACE WITH YOUR ACTUAL BACKEND URL
-      const res = await fetch("http://localhost:5000/upload", {
+      // const res = await fetch("http://localhost:5000/upload", {
+      const res = await fetch("https://chatbot-95vz.onrender.com/upload", {
         method: "POST",
         body: formData,
       });
@@ -268,7 +269,8 @@ function App() {
 
     try {
       // 🔁 REPLACE WITH YOUR ACTUAL CHAT BACKEND URL
-      const res = await fetch("http://localhost:5000/chat", {
+      // const res = await fetch("http://localhost:5000/chat", {
+      const res = await fetch("https://chatbot-95vz.onrender.com/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
