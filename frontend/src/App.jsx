@@ -1,202 +1,3 @@
-
-// import { useState, useRef, useEffect } from "react";
-
-// function App() {
-//   const [message, setMessage] = useState("");
-//   const [chat, setChat] = useState([]);
-//   const [loading, setLoading] = useState(false);
-
-//   // ✅ NEW: file upload state
-//   const [file, setFile] = useState(null);
-
-//   const chatEndRef = useRef(null);
-
-//   // ✅ Auto scroll
-//   useEffect(() => {
-//     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-//   }, [chat, loading]);
-
-//   // =============================
-//   // 📂 Upload PDF
-//   // =============================
-//   const uploadPDF = async () => {
-//     if (!file) {
-//       alert("Please select a file first");
-//       return;
-//     }
-
-//     const formData = new FormData();
-//     formData.append("pdf", file);
-
-//     try {
-//       const res = await fetch("http://localhost:5000/upload", {
-//         method: "POST",
-//         body: formData,
-//       });
-
-//       const data = await res.json();
-
-//       alert(data.message || "Uploaded ✅");
-//     } catch (error) {
-//       console.error(error);
-//       alert("Upload failed ❌");
-//     }
-//   };
-
-//   // =============================
-//   // 💬 Send Message
-//   // =============================
-//   const sendMessage = async () => {
-//     if (!message) return;
-
-//     const newChat = [...chat, { sender: "user", text: message }];
-//     setChat(newChat);
-//     setMessage("");
-//     setLoading(true);
-
-//     try {
-//       const res = await fetch("http://localhost:5000/chat", {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//         },
-//         body: JSON.stringify({ message }),
-//       });
-
-//       const data = await res.json();
-
-//       setChat([
-//         ...newChat,
-//         { sender: "bot", text: data.reply }
-//       ]);
-//     } catch (error) {
-//       console.error(error);
-//       setChat([
-//         ...newChat,
-//         { sender: "bot", text: "Error: Failed to get response" }
-//       ]);
-//     }
-
-//     setLoading(false);
-//   };
-
-//   return (
-//     <div style={{ maxWidth: "700px", margin: "auto", padding: "20px" }}>
-      
-//       <h2 style={{ textAlign: "center" }}>🤖 AI PDF Chatbot</h2>
-
-//       {/* =============================
-//           📂 Upload Section
-//       ============================= */}
-//       <div style={{ marginBottom: "15px" }}>
-//         <input
-//           type="file"
-//           accept="application/pdf"
-//           onChange={(e) => setFile(e.target.files[0])}
-//         />
-//         <button
-//           onClick={uploadPDF}
-//           style={{
-//             marginLeft: "10px",
-//             padding: "8px 15px",
-//             background: "green",
-//             color: "white",
-//             border: "none",
-//             borderRadius: "5px",
-//           }}
-//         >
-//           Upload PDF
-//         </button>
-//       </div>
-
-//       {/* =============================
-//           💬 Chat Box
-//       ============================= */}
-//       <div
-//         style={{
-//           border: "1px solid #ccc",
-//           borderRadius: "10px",
-//           padding: "10px",
-//           height: "400px",
-//           overflowY: "auto",
-//           background: "#f9f9f9",
-//         }}
-//       >
-//         {chat.map((msg, index) => (
-//           <div
-//             key={index}
-//             style={{
-//               textAlign: msg.sender === "user" ? "right" : "left",
-//               margin: "10px 0",
-//             }}
-//           >
-//             <span
-//               style={{
-//                 display: "inline-block",
-//                 padding: "10px",
-//                 borderRadius: "10px",
-//                 background:
-//                   msg.sender === "user" ? "#007bff" : "#e5e5ea",
-//                 color: msg.sender === "user" ? "white" : "black",
-//                 maxWidth: "80%",
-//               }}
-//             >
-//               {msg.text}
-//             </span>
-//           </div>
-//         ))}
-
-//         {loading && <p>🤖 Typing...</p>}
-
-//         <div ref={chatEndRef} />
-//       </div>
-
-//       {/* =============================
-//           ✏️ Input Box
-//       ============================= */}
-//       <div style={{ display: "flex", marginTop: "10px" }}>
-//         <input
-//           value={message}
-//           onChange={(e) => setMessage(e.target.value)}
-//           placeholder="Ask from PDF..."
-//           style={{
-//             flex: 1,
-//             padding: "10px",
-//             borderRadius: "5px",
-//             border: "1px solid #ccc",
-//           }}
-//           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-//         />
-
-//         <button
-//           onClick={sendMessage}
-//           style={{
-//             marginLeft: "10px",
-//             padding: "10px 20px",
-//             borderRadius: "5px",
-//             background: "#007bff",
-//             color: "white",
-//             border: "none",
-//           }}
-//         >
-//           Send
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useRef, useEffect } from "react";
 import "./App.css"; // We'll create this CSS file
 
@@ -283,7 +84,11 @@ function App() {
       if (res.ok) {
         setChat([
           ...newChat,
-          { sender: "bot", text: data.reply || data.response || "No response from backend" },
+          {
+            sender: "bot",
+            text: data.reply || "No response",
+            sources: data.sources || []   // 🔥 ADD THIS LINE
+          }
         ]);
       } else {
         setChat([
@@ -417,6 +222,19 @@ function App() {
               <div className={`message-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}>
                 {msg.sender === "bot" && <span className="bot-icon">🤖</span>}
                 <div className="message-text">{msg.text}</div>
+
+                  {/* 🔥 Sources Section */}
+                  {msg.sender === "bot" && msg.sources && msg.sources.length > 0 && (
+                    <div className="sources-box">
+                      <div className="sources-title">📄 Sources</div>
+
+                      {msg.sources.map((s, i) => (
+                        <div key={i} className="source-item">
+                          {typeof s === "string" ? s.slice(0, 150) : s.text?.slice(0, 150)}...
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           ))}
