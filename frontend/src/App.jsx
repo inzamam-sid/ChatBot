@@ -221,7 +221,9 @@ function App() {
             >
               <div className={`message-bubble ${msg.sender === "user" ? "user-bubble" : "bot-bubble"}`}>
                 {msg.sender === "bot" && <span className="bot-icon">🤖</span>}
-                <div className="message-text">{msg.text}</div>
+                <div className="message-text">{msg.text.split("\n").map((line, i) => (
+                    <p key={i}>{line}</p>
+                ))}</div>
 
                   {/* 🔥 Sources Section */}
                   {msg.sender === "bot" && msg.sources && msg.sources.length > 0 && (
