@@ -34,27 +34,38 @@ async function getRelevantData(query) {
       $vectorSearch: {
         queryVector: queryEmbedding,
         path: "embedding",
-        numCandidates: 10,
+        numCandidates: 20,
         limit: 5,
-        index: "vector_index", // ✅ fixed
+        index: "vector_index",
       },
     },
+    {
+      $project: {
+        text: 1,
+        score: { $meta: "vectorSearchScore" }
+      }
+    }
   ]).toArray();
 
-  if (!results.length) return null;
+  // 🔥 Filter weak matches
+  //const filtered = results.filter(r => r.score > 0.75);
+  const filtered = results.filter(r => r.score > 0.65 && r.text.length > 50);
 
-  //const context = results.map(r => r.text).join("\n");
-  //const context = [...new Set(results.map(r => r.text))].join("\n");
-  const context = [...new Set(results.map(r => r.text))]
-  .slice(0, 2)
-  .join("\n");
+  if (!filtered.length) return null;
 
-  console.log("Context:", context);
+  // 🔥 Remove duplicates + limit
+  const uniqueTexts = [...new Set(filtered.map(r => r.text))];
 
-  return context;
+  //const context = uniqueTexts.slice(0, 5).join("\n");
+
+  console.log("Top Scores:", filtered.map(r => r.score));
+  console.log("Final Context:", context);
+
+  //return context;
+  return uniqueTexts.slice(0, 5); // ✅ return array instead of string
 }
 
-function splitText(text, chunkSize = 500, overlap = 100) {
+function splitText(text, chunkSize = 800, overlap = 150) {
   const chunks = [];
 
   for (let i = 0; i < text.length; i += chunkSize - overlap) {
@@ -110,6 +121,7 @@ app.post("/upload", upload.single("pdf"), async (req, res) => {
       await collection.insertOne({
         text: chunk,
         embedding,
+        length: chunk.length
       });
     }
 
@@ -129,33 +141,34 @@ app.post("/chat", async (req, res) => {
   const { message } = req.body;
 
   try {
-    const context = await getRelevantData(message);
-
-    if (!context) {
+    const contexts = await getRelevantData(message);
+    if (!contexts) {
       return res.json({
-        reply: "I don't know. This is not in the uploaded PDF."
+        reply: "I couldn't find this in the uploaded PDF.",
+        sources: []
       });
     }
 
+    const combinedContext = contexts.join("\n"); // ✅ FIX
+
     const finalPrompt = `
-You are an AI tutor.
+      You are an AI tutor.
 
-Answer ONLY using the context below.
+      Answer using ONLY the context below.
 
-Rules:
-- Do NOT summarize too much
-- Include ALL important points from context
-- Preserve details
-- Use bullet points
-- Do NOT add outside knowledge
-- If not found → say "I don't know"
+      Rules:
+      - Do NOT repeat sentences
+      - Combine similar points
+      - Use proper bullet points (•)
+      - Group information logically
+      - Keep answer clean and readable
 
-Context:
-${context}
+      Context:
+      ${combinedContext}
 
-Question:
-${message}
-`;
+      Question:
+      ${message}
+      `;
 
     const response = await groq.chat.completions.create({
       messages: [
@@ -167,9 +180,23 @@ ${message}
 
     let reply = response.choices[0].message.content;
 
-    reply = reply.replace(/\*\*/g, "").replace(/\*/g, "");
+    //reply = reply.replace(/\*\*/g, "").replace(/\*/g, "");
+    reply = reply
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .replace(/\n\s*\n/g, "\n")   // 🔥 fix spacing
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
-    res.json({ reply });
+    // res.json({ reply });
+    // res.json({
+    //   reply: response.choices[0].message.content,
+    //   sources: contexts, // 🔥 send sources
+    // });
+    res.json({
+      reply: reply,   // ✅ use cleaned version
+      sources: contexts.map(text => ({ text }))
+    });
 
   } catch (error) {
     console.error(error);
