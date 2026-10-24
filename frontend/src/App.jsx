@@ -9,6 +9,8 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  
+
   const chatEndRef = useRef(null);
 
   // Auto scroll to bottom
@@ -54,6 +56,24 @@ function App() {
     } finally {
       setUploading(false);
     }
+  };
+
+  // 👇 ADD HERE
+  const askQuestion = async (question) => {
+    const userMessage = question;
+
+    const newChat = [
+      ...chat,
+      {
+        sender: "user",
+        text: userMessage,
+      },
+    ];
+
+    setChat(newChat);
+
+    // For now just put question into input
+    setMessage(question);
   };
 
   // =============================
@@ -172,10 +192,11 @@ function App() {
             <button
               key={idx}
               className="suggestion-button"
-              onClick={() => {
-                setMessage(q);
-                sendMessage();
-              }}
+              // onClick={() => {
+              //   setMessage(q);
+              //   sendMessage();
+              // }}
+              onClick={() => askQuestion(q)}
             >
               {q}
             </button>

@@ -26,15 +26,21 @@ const groq = new Groq({
 
 
 // 🔍 Smart Search
+
 async function getRelevantData(query) {
+  console.log("CHAT API HIT");
+  console.log("User question:", query);
+
   const queryEmbedding = await getEmbedding(query);
+
+  console.log("Query embedding dimensions:", queryEmbedding.length);
 
   const results = await collection.aggregate([
     {
       $vectorSearch: {
         queryVector: queryEmbedding,
         path: "embedding",
-        numCandidates: 20,
+        numCandidates: 50,
         limit: 5,
         index: "vector_index",
       },
@@ -42,28 +48,34 @@ async function getRelevantData(query) {
     {
       $project: {
         text: 1,
-        score: { $meta: "vectorSearchScore" }
-      }
-    }
+        pdfId: 1,
+        score: { $meta: "vectorSearchScore" },
+      },
+    },
   ]).toArray();
 
-  // 🔥 Filter weak matches
-  //const filtered = results.filter(r => r.score > 0.75);
-  const filtered = results.filter(r => r.score > 0.65 && r.text.length > 50);
+  console.log("Vector search result count:", results.length);
 
-  if (!filtered.length) return null;
+  console.log(
+    "Vector search results:",
+    results.map((r) => ({
+      score: r.score,
+      pdfId: r.pdfId,
+      preview: r.text?.slice(0, 120),
+    }))
+  );
 
-  // 🔥 Remove duplicates + limit
-  const uniqueTexts = [...new Set(filtered.map(r => r.text))];
+  // TEMPORARILY remove the similarity threshold
+  // so we can diagnose retrieval.
+  const usableResults = results.filter(
+    (r) => typeof r.text === "string" && r.text.trim().length > 0
+  );
 
-  //const context = uniqueTexts.slice(0, 5).join("\n");
+  console.log("Usable results:", usableResults.length);
 
-  console.log("Top Scores:", filtered.map(r => r.score));
-  console.log("Final Context:", context);
-
-  //return context;
-  return uniqueTexts.slice(0, 5); // ✅ return array instead of string
+  return usableResults.map((r) => r.text);
 }
+
 
 function splitText(text, chunkSize = 800, overlap = 150) {
   const chunks = [];
@@ -113,17 +125,33 @@ app.post("/upload", upload.single("pdf"), async (req, res) => {
 
     console.log("Total chunks:", chunks.length);
 
+    await collection.deleteMany({});
+    const pdfId = Date.now().toString();
     for (let chunk of chunks) {
       if (!chunk.trim()) continue;
 
       const embedding = await getEmbedding(chunk);
 
-      await collection.insertOne({
+      // await collection.insertOne({
+      //   text: chunk,
+      //   embedding,
+      //   length: chunk.length
+      // });
+      const result = await collection.insertOne({
+        pdfId,
         text: chunk,
-        embedding,
-        length: chunk.length
+        embedding
       });
+
+      console.log("Chunk stored:", result.insertedId);
+      console.log("Embedding dimensions:", embedding.length);
     }
+
+    console.log("PDF upload complete:", {
+      pdfId,
+      totalChunks: chunks.length,
+      storedDocuments: await collection.countDocuments({ pdfId }),
+    });
 
     // ✅ delete file after processing
     fs.unlinkSync(filePath);
