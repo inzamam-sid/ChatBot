@@ -203,7 +203,7 @@ app.post("/chat", async (req, res) => {
         { role: "system", content: "Strict context-based assistant." },
         { role: "user", content: finalPrompt }
       ],
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
     });
 
     let reply = response.choices[0].message.content;
