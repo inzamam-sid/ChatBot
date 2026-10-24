@@ -88,13 +88,10 @@ function splitText(text, chunkSize = 800, overlap = 150) {
 }
 
 function cleanText(text) {
-  return text
-    .replace(/\n+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/Page \d+/gi, "")
-    .replace(/JAVASCRIPT Notes/gi, "")
-    .replace(/By –.*?\d+/gi, "") // remove author lines
-    .replace(/[^a-zA-Z0-9.,:;()=+\-*/<>!&| ]/g, "") // remove weird chars
+  return (text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -114,33 +111,64 @@ app.post("/upload", upload.single("pdf"), async (req, res) => {
 
     const pdfParse = require("pdf-parse");
 
+    // const pdfData = await pdfParse(dataBuffer);
+
+    // console.log("PDF parsed successfully");
+
+    // //const text = pdfData.text;
+    // const text = cleanText(pdfData.text);
+
+    // const chunks = splitText(text);
+
+    // console.log("Total chunks:", chunks.length);
+
     const pdfData = await pdfParse(dataBuffer);
 
     console.log("PDF parsed successfully");
 
-    //const text = pdfData.text;
-    const text = cleanText(pdfData.text);
+    console.log(
+      "Raw extracted text length:",
+      pdfData.text?.length ?? 0
+    );
 
-    const chunks = splitText(text);
+    console.log(
+      "Raw extracted text preview:",
+      (pdfData.text || "").slice(0, 500)
+    );
+
+    const text = cleanText(pdfData.text || "");
+
+    console.log("Cleaned text length:", text.length);
+    console.log("Cleaned text preview:", text.slice(0, 500));
+
+    if (!text.trim()) {
+      return res.status(400).json({
+        error:
+          "No readable text found in this PDF. If it is scanned, OCR is required.",
+      });
+    }
+
+    const chunks = splitText(text).filter((chunk) => chunk.trim());
 
     console.log("Total chunks:", chunks.length);
 
-    await collection.deleteMany({});
-    const pdfId = Date.now().toString();
-    for (let chunk of chunks) {
-      if (!chunk.trim()) continue;
+    if (chunks.length === 0) {
+      return res.status(400).json({
+        error: "No text chunks could be generated from this PDF.",
+      });
+    }
 
+    await collection.deleteMany({});
+
+    const pdfId = Date.now().toString();
+
+    for (const chunk of chunks) {
       const embedding = await getEmbedding(chunk);
 
-      // await collection.insertOne({
-      //   text: chunk,
-      //   embedding,
-      //   length: chunk.length
-      // });
       const result = await collection.insertOne({
         pdfId,
         text: chunk,
-        embedding
+        embedding,
       });
 
       console.log("Chunk stored:", result.insertedId);
@@ -170,10 +198,10 @@ app.post("/chat", async (req, res) => {
 
   try {
     const contexts = await getRelevantData(message);
-    if (!contexts) {
+    if (!contexts || contexts.length === 0) {
       return res.json({
-        reply: "I couldn't find this in the uploaded PDF.",
-        sources: []
+        reply: "I couldn't find relevant information in the uploaded PDF.",
+        sources: [],
       });
     }
 
